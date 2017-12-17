@@ -3,6 +3,7 @@
 #include <iostream>
 #include <fstream>
 #include <queue>
+#include <list>
 
 #include "rngs.h"
 #include "arrival.hpp"
@@ -17,6 +18,7 @@ using namespace std;
 // Constants ///////////////////////////////////////////////////////////////////
     // modify this to increase utilization, increase to decrease arrival rate
     const double ARRIVAL_RATE_DENOM = 2.0;
+    const string SCHEDULE = "FCFS";
 
 // Functions ///////////////////////////////////////////////////////////////////
 double Min(double a, double c)
@@ -54,10 +56,18 @@ double GetService()
 }
 
 // Function Implementation /////////////////////////////////////////////////////
-void generateArrivals(vector<Arrival*> *arrivals);
+void writeStatsFile(vector<double> delayTimes, vector<double> waitTimes);
 
 int main(int argc, char const *argv[])
 {
+    // print info for simulation
+    cout << "Performing simulation with arrival rate of 1 / "
+         << ARRIVAL_RATE_DENOM << " = "
+         << 1/ARRIVAL_RATE_DENOM
+         << endl;
+
+    cout << "With the scheduling policy " << SCHEDULE << endl;
+
     // Change policy here based on classes in policies.hpp
     priority_queue<Arrival*, std::vector<Arrival*>, FCFS> pQueue;
 
@@ -85,6 +95,12 @@ int main(int argc, char const *argv[])
 
     Arrival* event = nullptr;
 
+    vector<double> delayTimes;
+    vector<double> waitTimes;
+    cout << "First arrival : " << t.arrival << endl;
+
+    double notBusyST = 0;
+
     while ((t.arrival < STOP) || (number > 0))
     {
         t.next = Min(t.arrival, t.completion);
@@ -99,6 +115,23 @@ int main(int argc, char const *argv[])
 
         if (t.current == t.arrival) {
             number++;
+
+            double st = GetService();
+
+            if (number > 1 && t.arrival < STOP)
+            {
+                event = new Arrival();
+                event->arrivalTime = t.arrival;
+                event->serviceTime = st;
+                pQueue.push(event);
+                event = nullptr;
+            }
+
+            if (number == 1) {
+                notBusyST = st;
+                t.completion = t.current + st;
+            }
+
             t.arrival = GetArrival();
 
             if (t.arrival > STOP) {
@@ -106,25 +139,33 @@ int main(int argc, char const *argv[])
                 t.arrival   = LARGENUM;
             }
 
-            if (number == 1) {
-                t.completion = t.current + GetService();
-            }
-            else {
-                event = new Arrival();
-                event->arrivalTime = t.arrival;
-                event->serviceTime = GetService();
-                pQueue.push(event);
-                event = nullptr;
-            }
         }
         else {
             index++;
             number--;
-            if (number > 0) {
+
+            if (pQueue.empty() && number == 0)
+            {
+                double delay = 0;
+                double wait = notBusyST;
+
+                delayTimes.push_back(delay);
+                waitTimes.push_back(wait);
+            }
+
+            if (! pQueue.empty() && number > 0) {
+
                 event = pQueue.top();
                 pQueue.pop();
 
+                double delay = t.current - event->arrivalTime;
+                double wait = delay + event->serviceTime;
+
                 t.completion = t.current + event->serviceTime;
+
+                delayTimes.push_back(delay);
+                waitTimes.push_back(wait);
+
                 delete event;
                 event = nullptr;
             }
@@ -133,6 +174,26 @@ int main(int argc, char const *argv[])
             }
         }
     }
+
+    double delaySum = 0.0;
+
+    for (vector<double>::iterator i = delayTimes.begin(); i != delayTimes.end(); ++i)
+    {
+        delaySum += *i;
+    }
+
+    double waitSum = 0.0;
+
+    for (std::vector<double>::iterator i = waitTimes.begin(); i != waitTimes.end(); ++i)
+    {
+        waitSum += *i;
+    }
+
+    writeStatsFile(delayTimes, waitTimes);
+    double avgDelay = delaySum / index;
+    double avgWait = waitSum /index;
+    cout << "Average wait (non-time avg) : " << avgWait << endl;
+    cout << "Average delay (non-time avg) : " << avgDelay << endl;
 
     printf("\nfor %ld jobs\n", index);
     printf("   average interarrival time = %6.2f\n", t.last / index);
@@ -144,4 +205,23 @@ int main(int argc, char const *argv[])
     printf("   utilization ............. = %6.2f\n", area.service / t.current);
 
     return 0;
+}
+
+void writeStatsFile(vector<double> delayTimes, vector<double> waitTimes)
+{
+    ofstream fout;
+    fout.open("delays.csv", ios_base::trunc);
+    for (vector<double>::iterator i = delayTimes.begin(); i != delayTimes.end(); ++i)
+    {
+        fout << *i << ',';
+    }
+    fout.close();
+
+    fout.open("response_times.csv", ios_base::trunc);
+
+    for (std::vector<double>::iterator i = waitTimes.begin(); i != waitTimes.end(); ++i)
+    {
+        fout << *i << ',';
+    }
+    fout.close();
 }
