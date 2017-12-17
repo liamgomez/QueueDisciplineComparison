@@ -4,6 +4,9 @@
 #include <fstream>
 #include <queue>
 #include <list>
+#include <cstdlib>
+#include <algorithm>
+#include <random>
 
 #include "rngs.h"
 #include "arrival.hpp"
@@ -12,13 +15,13 @@
 using namespace std;
 
 #define START         0.0
-#define STOP      20000.0
+#define STOP      30000.0
 #define LARGENUM   (100.0 * STOP)
 
 // Constants ///////////////////////////////////////////////////////////////////
     // modify this to increase utilization, increase to decrease arrival rate
-    const double ARRIVAL_RATE_DENOM = 2.0;
-    const string SCHEDULE = "FCFS";
+    const double ARRIVAL_RATE_DENOM = 1.66;
+    const string SCHEDULE = "SJF";
 
 // Functions ///////////////////////////////////////////////////////////////////
 double Min(double a, double c)
@@ -55,21 +58,57 @@ double GetService()
     return (Uniform(1.0, 2.0));
 }
 
+bool fcfs(const Arrival *a, const Arrival *b)
+{
+    return a->arrivalTime < b->arrivalTime;
+}
+
+bool lcfs(const Arrival *a, const Arrival *b)
+{
+    return a->arrivalTime > b->arrivalTime;
+}
+
+bool sjf(const Arrival *a, const Arrival *b)
+{
+    return a->serviceTime < b->serviceTime;
+}
+
+bool randomOrder(const Arrival *a, const Arrival *b)
+{
+    SelectStream(2);
+    double randomNum = Uniform(0, 1.0);
+    return randomNum < 0.5;
+}
+
 // Function Implementation /////////////////////////////////////////////////////
-void writeStatsFile(vector<double> delayTimes, vector<double> waitTimes);
+void writeStatsFile(vector<double> delayTimes, vector<double> waitTimes, string schedule);
 
 int main(int argc, char const *argv[])
 {
+    string scheduleInput = "FCFS";
+    cout << "Please enter the schedule you wish to simulate (FCFS, LCFS, SJF, RO) : ";
+    cin >> scheduleInput;
+
+    if (scheduleInput != "FCFS" &&
+        scheduleInput != "LCFS" &&
+        scheduleInput != "SJF" &&
+        scheduleInput != "RO")
+    {
+        cout << "Error: invalid scheduling policy input options are (FCFS, LCFS, SJF, RO)";
+        return 0;
+    }
+
     // print info for simulation
     cout << "Performing simulation with arrival rate of 1 / "
          << ARRIVAL_RATE_DENOM << " = "
          << 1/ARRIVAL_RATE_DENOM
          << endl;
 
-    cout << "With the scheduling policy " << SCHEDULE << endl;
+    cout << "With the scheduling policy " << scheduleInput << endl;
 
     // Change policy here based on classes in policies.hpp
-    priority_queue<Arrival*, std::vector<Arrival*>, FCFS> pQueue;
+    priority_queue<Arrival*, std::vector<Arrival*>, LCFS> pQueue;
+    list<Arrival*> eventList;
 
     struct {
         double arrival;
@@ -123,7 +162,8 @@ int main(int argc, char const *argv[])
                 event = new Arrival();
                 event->arrivalTime = t.arrival;
                 event->serviceTime = st;
-                pQueue.push(event);
+
+                eventList.push_back(event);
                 event = nullptr;
             }
 
@@ -144,7 +184,7 @@ int main(int argc, char const *argv[])
             index++;
             number--;
 
-            if (pQueue.empty() && number == 0)
+            if (eventList.empty() && number == 0)
             {
                 double delay = 0;
                 double wait = notBusyST;
@@ -153,10 +193,22 @@ int main(int argc, char const *argv[])
                 waitTimes.push_back(wait);
             }
 
-            if (! pQueue.empty() && number > 0) {
+            if (! eventList.empty() && number > 0) {
+                if ( scheduleInput == "FCFS") {
+                    eventList.sort(fcfs);
+                }
+                if ( scheduleInput == "LCFS") {
+                    eventList.sort(lcfs);
+                }
+                if ( scheduleInput == "SJF") {
+                    eventList.sort(sjf);
+                }
+                if ( scheduleInput == "RO") {
+                    eventList.sort(randomOrder);
+                }
 
-                event = pQueue.top();
-                pQueue.pop();
+                event = eventList.front();
+                eventList.pop_front();
 
                 double delay = t.current - event->arrivalTime;
                 double wait = delay + event->serviceTime;
@@ -189,7 +241,7 @@ int main(int argc, char const *argv[])
         waitSum += *i;
     }
 
-    writeStatsFile(delayTimes, waitTimes);
+    writeStatsFile(delayTimes, waitTimes, scheduleInput);
     double avgDelay = delaySum / index;
     double avgWait = waitSum /index;
     cout << "Average wait (non-time avg) : " << avgWait << endl;
@@ -207,17 +259,17 @@ int main(int argc, char const *argv[])
     return 0;
 }
 
-void writeStatsFile(vector<double> delayTimes, vector<double> waitTimes)
+void writeStatsFile(vector<double> delayTimes, vector<double> waitTimes, string schedule)
 {
     ofstream fout;
-    fout.open("delays.csv", ios_base::trunc);
+    fout.open("delays" + schedule + ".csv", ios_base::trunc);
     for (vector<double>::iterator i = delayTimes.begin(); i != delayTimes.end(); ++i)
     {
         fout << *i << ',';
     }
     fout.close();
 
-    fout.open("response_times.csv", ios_base::trunc);
+    fout.open("response_times" + schedule + ".csv", ios_base::trunc);
 
     for (std::vector<double>::iterator i = waitTimes.begin(); i != waitTimes.end(); ++i)
     {
