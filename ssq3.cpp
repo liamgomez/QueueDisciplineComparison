@@ -263,17 +263,28 @@ void writeStatsFile(vector<double> delayTimes, vector<double> waitTimes, string 
 {
     ofstream fout;
     fout.open("delays" + schedule + ".csv", ios_base::trunc);
+    fout << "delays" << endl;
     for (vector<double>::iterator i = delayTimes.begin(); i != delayTimes.end(); ++i)
     {
-        fout << *i << ',';
+        fout << *i;
+        if (delayTimes.begin() != delayTimes.end())
+        {
+            fout << endl;
+        }
     }
     fout.close();
 
     fout.open("response_times" + schedule + ".csv", ios_base::trunc);
+    fout << "response_times" << endl;
 
     for (std::vector<double>::iterator i = waitTimes.begin(); i != waitTimes.end(); ++i)
     {
-        fout << *i << ',';
+        fout << *i;
+
+        if (waitTimes.begin() != waitTimes.end())
+        {
+            fout << endl;
+        }
     }
     fout.close();
 }
