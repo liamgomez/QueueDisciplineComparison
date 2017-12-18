@@ -204,7 +204,6 @@ int main(int argc, char const *argv[])
                 }
 
                 event = eventList.front();
-                eventList.pop_front();
 
                 double delay = t.current - event->arrivalTime;
                 double wait = delay + event->serviceTime;
@@ -216,6 +215,7 @@ int main(int argc, char const *argv[])
 
                 delete event;
                 event = nullptr;
+                eventList.pop_front();
             }
             else {
                 t.completion = LARGENUM;
