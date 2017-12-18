@@ -10,7 +10,6 @@
 
 #include "rngs.h"
 #include "arrival.hpp"
-#include "policies.hpp"
 
 using namespace std;
 
@@ -21,7 +20,6 @@ using namespace std;
 // Constants ///////////////////////////////////////////////////////////////////
     // modify this to increase utilization, increase to decrease arrival rate
     const double ARRIVAL_RATE_DENOM = 1.66;
-    const string SCHEDULE = "SJF";
 
 // Functions ///////////////////////////////////////////////////////////////////
 double Min(double a, double c)
@@ -106,8 +104,6 @@ int main(int argc, char const *argv[])
 
     cout << "With the scheduling policy " << scheduleInput << endl;
 
-    // Change policy here based on classes in policies.hpp
-    priority_queue<Arrival*, std::vector<Arrival*>, LCFS> pQueue;
     list<Arrival*> eventList;
 
     struct {
